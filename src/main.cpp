@@ -11,53 +11,16 @@
  * Settings:
  *  FUSE_L=0x7A
  *  FUSE_H=0xFF
- *  F_CPU=9600000
+ *  F_CPU=8000000UL
  */
-
-/*
-    0x45 button 1
-    0x46 button 2
-    0x47 button 3
-    0x44 button 4
-    0x40 button 5
-    0x43 button 6
-    0x07 button 7
-    0x15 button 8
-    0x09 button 9
-    0x16 button *
-    0x19 button 0
-    0x0d button #
-
-    // Key code map for the remote control found in the kit
-const byte keyMap[][2] = {{0x45, '1'},
-                          {0x46, '2'},
-                          {0x47, '3'},
-                          {0x44, '4'},
-                          {0x40, '5'},
-                          {0x43, '6'},
-                          {0x07, '7'},
-                          {0x15, '8'},
-                          {0x09, '9'},
-                          {0x16, '*'},
-                          {0x19, '0'},
-                          {0x0D, '#'},
-                          {0x18, 'U'},
-                          {0x08, 'L'},
-                          {0x1C, 'E'},
-                          {0x5A, 'R'},
-                          {0x52, 'D'}
-                          };
-*/
-
 
 /*
 Known Issuses:
 1. start_tone doesn't work. it brokes IR timer. 
 2. After IR timer inits INIT_IR, _delay() start working 2x slower
 
-
 todo:
-1. Is it possible to wakeup with IR ? I didn't hava a success
+1. Is it possible to wakeup with IR ? I didn't have a success
 2. Try to work at 1 Mhz
 3. Find a more correctly way to switchoff. 
 
@@ -68,6 +31,25 @@ todo:
 #include <util/delay.h>
 #include "ir.h"
 #include "buzzer.h"
+
+// Infra red control button codes
+#define IRC_BUTTON_1 0x45
+#define IRC_BUTTON_2 0x46
+#define IRC_BUTTON_3 0x47
+#define IRC_BUTTON_4 0x44
+#define IRC_BUTTON_5 0x40
+#define IRC_BUTTON_6 0x43
+#define IRC_BUTTON_7 0x07
+#define IRC_BUTTON_8 0x15
+#define IRC_BUTTON_9 0x09
+#define IRC_BUTTON_STAR 0x16
+#define IRC_BUTTON_0 0x19
+#define IRC_BUTTON_HASH 0x0D
+#define IRC_BUTTON_UP 0x18
+#define IRC_BUTTON_LEFT 0x08
+#define IRC_BUTTON_OK 0x1C
+#define IRC_BUTTON_RIGHT 0x5A
+#define IRC_BUTTON_DOWN 0x52
 
 #define BUZZER_PIN PB0
 #define LED_PIN PB1
@@ -140,6 +122,7 @@ void go_sleep()
 {
     tone(200, 20);
     flash_led(5);
+    // Turn off all the pins
     PORTB &= ~_BV(LED_PIN);
     PORTB &= ~_BV(MOTOR_F_PIN);
     PORTB &= ~_BV(MOTOR_B_PIN);
@@ -197,31 +180,26 @@ int main(void)
 
             switch (cmd)
             {
-            case 0x1C:
-                // button OK
+            case IRC_BUTTON_OK:
                 move(MOTOR_STOP);
                 break;
-            case 0x18:
-                // button UP
+            case IRC_BUTTON_UP:
                 move(MOTOR_FORWARD);
                 break;
-            case 0x52:
-                // button DOWN
+            case IRC_BUTTON_DOWN:
                 move(MOTOR_BACK);
                 break;
-            case 0x45:
-                // button 1
+            case IRC_BUTTON_1:
                 // Toggle Buzzer
                 PORTB ^= _BV(BUZZER_PIN); // toggle LED1
                 setting_buzzer = !setting_buzzer;
                 break;
-            case 0x46:
-                // button 2
+            case IRC_BUTTON_2:
                 // Toggle LED
-                PORTB ^= _BV(LED_PIN); // toggle LED2
+                PORTB ^= _BV(LED_PIN);
                 setting_led = !setting_led;
                 break;
-            case 0x16:
+            case IRC_BUTTON_STAR:
                 // button *
                 // Toggle LED
                 go_sleep();
@@ -235,7 +213,7 @@ int main(void)
                 // stop_tone();
                 break;
             };
-            // reset on last event
+            // reset uptime on last event
             uptime_s = 0;
         }
 
