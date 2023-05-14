@@ -17,7 +17,13 @@ void IR_init()
     PORTB &= ~_BV(IR_IN_PIN); // set LOW level to IR IN pin
     TCCR0A |= _BV(WGM01);     // set timer counter mode to CTC
     TCCR0B |= _BV(CS00);      // set prescaler to 1
-    TIMSK |= _BV(OCIE0A);     // enable Timer COMPA interrupt
+
+    #ifdef ATTINY85
+        TIMSK |= _BV(OCIE0A);     // enable Timer COMPA interrupt
+    #elif ATTINY13
+        TIMSK0 |= _BV(OCIE0A);     // enable Timer COMPA interrupt
+    #endif
+
     OCR0A = IR_OCR0A;         // set OCR0n to get ~38.222kHz timer frequency
     GIMSK |= _BV(INT0);       // enable INT0 interrupt handler
     MCUCR &= ~_BV(ISC01);     // trigger INTO interrupt on raising and falling edge
@@ -50,7 +56,7 @@ IR_NEC_process(uint16_t counter, uint8_t value)
         if (value == HIGH)
         {
             // if (counter > 330 && counter < 360) {
-            if (counter > (IR_NEC_CODE_REG_TRANSM_4_5_MS - 15) && counter < (IR_NEC_CODE_REG_TRANSM_4_5_MS + 15))
+            if ((counter > IR_NEC_CODE_REG_TRANSM_4_5_MS_L) && (counter < IR_NEC_CODE_REG_TRANSM_4_5_MS_H))
             {
                 /* a 4.5ms space for regular transmition of NEC Code; counter => 0.0045/(1.0/38222.0) * 2 = 344 (+/- 15) */
                 IR_proto_event = IR_PROTO_EVENT_DATA;

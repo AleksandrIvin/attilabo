@@ -11,7 +11,7 @@
  * Settings:
  *  FUSE_L=0x7A
  *  FUSE_H=0xFF
- *  F_CPU=8000000UL
+ *  __F_CPU=8000000UL
  */
 
 /*
@@ -26,7 +26,10 @@ todo:
 
 */
 
-//#define F_CPU 8000000UL // Attiny85
+// #define NO_ATTINY13
+// #define ATTINY85
+
+#include "conf.h"
 
 #include <util/delay.h>
 #include "ir.h"
@@ -51,10 +54,7 @@ todo:
 #define IRC_BUTTON_RIGHT 0x5A
 #define IRC_BUTTON_DOWN 0x52
 
-#define BUZZER_PIN PB0
-#define LED_PIN PB1
-#define MOTOR_F_PIN PB3
-#define MOTOR_B_PIN PB4
+
 
 #define MOTOR_STOP (0)
 #define MOTOR_FORWARD (1)
@@ -93,28 +93,16 @@ void move(uint8_t direction)
     }
 }
 
-void flash_async()
+void flash_led(uint8_t cnt)
 {
-    static uint16_t flash_cnt = 0;
-    if (++flash_cnt == 24000)
+    // 64 bytes
+    // PORTB &= ~_BV(LED_PIN);
+    for (uint8_t i = 0; i < cnt; i++)
     {
-        if (setting_led)
-            PORTB ^= _BV(LED_PIN); // toggle LED
-        if (setting_buzzer)
-            PORTB ^= _BV(BUZZER_PIN); // toggle BUZZER
-        flash_cnt = 0;    
-    }
-}
-
-void flash_led(uint8_t a)
-{
-    PORTB &= ~_BV(LED_PIN);
-    for (uint8_t i = 0; i < a; i++)
-    {
-        PORTB |= _BV(LED_PIN);
+        PORTB ^= _BV(LED_PIN);
         _delay_ms(100);
-        PORTB &= ~_BV(LED_PIN);
-        _delay_ms(100);
+        // PORTB &= ~_BV(LED_PIN);
+        // _delay_ms(100);
     }
 }
 
@@ -126,6 +114,7 @@ void go_sleep()
     PORTB &= ~_BV(LED_PIN);
     PORTB &= ~_BV(MOTOR_F_PIN);
     PORTB &= ~_BV(MOTOR_B_PIN);
+    // PORTB &= ~(_BV(BUZZER_PIN) | _BV(LED_PIN) | _BV(MOTOR_F_PIN) | _BV(MOTOR_B_PIN));
 
     MCUCR |= (1 << SM1); // enabling sleep mode and powerdown sleep mode
     MCUCR |= (1 << SE);  // Enabling sleep enable bit
@@ -137,8 +126,8 @@ void go_sleep()
 int main(void)
 {
     uint8_t addr, cmd;
-    volatile uint32_t cycle_tick_cnt = 0;
-    volatile uint32_t uptime_s = 0;
+    volatile uint16_t cycle_tick_cnt = 0;
+    volatile uint16_t uptime_s = 0;
 
     /* setup */
     DDRB |= _BV(BUZZER_PIN) | _BV(LED_PIN) | _BV(MOTOR_F_PIN) | _BV(MOTOR_B_PIN);
@@ -189,11 +178,11 @@ int main(void)
             case IRC_BUTTON_DOWN:
                 move(MOTOR_BACK);
                 break;
-            case IRC_BUTTON_1:
-                // Toggle Buzzer
-                PORTB ^= _BV(BUZZER_PIN); // toggle LED1
-                setting_buzzer = !setting_buzzer;
-                break;
+            // case IRC_BUTTON_1:
+            //     // Toggle Buzzer
+            //     PORTB ^= _BV(BUZZER_PIN); // toggle LED1
+            //     setting_buzzer = !setting_buzzer;
+            //     break;
             case IRC_BUTTON_2:
                 // Toggle LED
                 PORTB ^= _BV(LED_PIN);
@@ -217,18 +206,26 @@ int main(void)
             uptime_s = 0;
         }
 
-        if (motor_state == MOTOR_BACK)
+        if (motor_state == MOTOR_BACK && cycle_tick_cnt == 25000)
         {
-            flash_async();
+            if (setting_led)
+                PORTB ^= _BV(LED_PIN); // toggle LED
+
+            #ifdef ATTINY85    // low flash memory. doesn't work for ATTINY13
+            if (setting_buzzer)
+                PORTB ^= _BV(BUZZER_PIN); // toggle BUZZER
+            #endif
         }
 
-        if (cycle_tick_cnt++ > 100000) // 1 cycle is around 2s at 8Mhz
+        // 68 bytes
+        if (cycle_tick_cnt++ > 50000) // 1 cycle is around 1s at 8Mhz
         {
             cycle_tick_cnt = 0;
             uptime_s++;
         }
 
-        if (uptime_s > 300)  // ~600 seconds
+        // 24 bytes
+        if (uptime_s > 1200)  // ~1200 seconds
         {
             go_sleep();
         }

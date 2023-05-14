@@ -8,8 +8,9 @@
 #ifndef _IR_H_
 #define _IR_H_
 
+#include "conf.h"
 // IR pin Attiny85 = PB2 (7 pin)
-#define IR_IN_PIN PB2
+// //#define IR_IN_PIN PB2
 // 9.6Mhz Attiny13 9.600.000 / 38222 / 2 = 125  (I don't know why 122)
 // #define	IR_OCR0A		(122)  // worked
 // 8Mhz  Attiny85 8.000.000 / 38222 / 2 = 104
@@ -34,6 +35,8 @@
 /* a 4.5ms space for regular transmition of NEC Code; counter => 0.0045/(1.0/38222.0) * 2 = 344 (+/- 15) */
 #define IR_NEC_CODE_REG_TRANSM_4_5_MS (345)
 // #define IR_NEC_CODE_REG_TRANSM_4_5_MS (290) // was worked
+#define IR_NEC_CODE_REG_TRANSM_4_5_MS_L (IR_NEC_CODE_REG_TRANSM_4_5_MS - 15)
+#define IR_NEC_CODE_REG_TRANSM_4_5_MS_H (IR_NEC_CODE_REG_TRANSM_4_5_MS + 15)
 
 /* a 2.25ms space for NEC Code repeat; counter => 0.00225/(1.0/38222.0) * 2 = 172 (+/- 15) */
 #define IR_NEC_CODE_REG_TRANSM_2_25_MS (172)
