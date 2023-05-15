@@ -1,13 +1,13 @@
 /**
  * Copyright (c) 2022, Aleksandr Ivin
- * 
+ *
  * Thanks for Łukasz Marcin Podkalicki <lpodkalicki@gmail.com>
  * ATtiny13 NEC proto analyzer, ATtiny13 tone generator
- * Example of monblocking IR signal reader (38kHz, TSOPxxx) and NEC protocol decoder. * 
+ * Example of monblocking IR signal reader (38kHz, TSOPxxx) and NEC protocol decoder. *
  * https://blog.podkalicki.com/attiny13-tone-generator/
  * https://blog.podkalicki.com/attiny13-ir-receiver-nec-proto-analyzer/
  * https://blog.podkalicki.com/100-projects-on-attiny13/
- * 
+ *
  * Settings:
  *  FUSE_L=0x7A
  *  FUSE_H=0xFF
@@ -16,13 +16,13 @@
 
 /*
 Known Issuses:
-1. start_tone doesn't work. it brokes IR timer. 
+1. start_tone doesn't work. it brokes IR timer.
 2. After IR timer inits INIT_IR, _delay() start working 2x slower
 
 todo:
 1. Is it possible to wakeup with IR ? I didn't have a success
 2. Try to work at 1 Mhz
-3. Find a more correctly way to switchoff. 
+3. Find a more correctly way to switchoff.
 
 */
 
@@ -36,25 +36,23 @@ todo:
 #include "buzzer.h"
 
 // Infra red control button codes
-#define IRC_BUTTON_1 0x45
-#define IRC_BUTTON_2 0x46
-#define IRC_BUTTON_3 0x47
-#define IRC_BUTTON_4 0x44
-#define IRC_BUTTON_5 0x40
-#define IRC_BUTTON_6 0x43
-#define IRC_BUTTON_7 0x07
-#define IRC_BUTTON_8 0x15
-#define IRC_BUTTON_9 0x09
-#define IRC_BUTTON_STAR 0x16
-#define IRC_BUTTON_0 0x19
-#define IRC_BUTTON_HASH 0x0D
-#define IRC_BUTTON_UP 0x18
-#define IRC_BUTTON_LEFT 0x08
-#define IRC_BUTTON_OK 0x1C
-#define IRC_BUTTON_RIGHT 0x5A
-#define IRC_BUTTON_DOWN 0x52
-
-
+#define IRC_BUTTON_1 (0x45)
+#define IRC_BUTTON_2 (0x46)
+#define IRC_BUTTON_3 (0x47)
+#define IRC_BUTTON_4 (0x44)
+#define IRC_BUTTON_5 (0x40)
+#define IRC_BUTTON_6 (0x43)
+#define IRC_BUTTON_7 (0x07)
+#define IRC_BUTTON_8 (0x15)
+#define IRC_BUTTON_9 (0x09)
+#define IRC_BUTTON_STAR (0x16)
+#define IRC_BUTTON_0 (0x19)
+#define IRC_BUTTON_HASH (0x0D)
+#define IRC_BUTTON_UP (0x18)
+#define IRC_BUTTON_LEFT (0x08)
+#define IRC_BUTTON_OK (0x1C)
+#define IRC_BUTTON_RIGHT (0x5A)
+#define IRC_BUTTON_DOWN (0x52)
 
 #define MOTOR_STOP (0)
 #define MOTOR_FORWARD (1)
@@ -155,7 +153,7 @@ int main(void)
     // PORTB &= ~_BV(MOTOR_F_PIN);
     // PORTB &= ~_BV(MOTOR_B_PIN);
     tone(200, 10);
-    flash_led(2);
+    flash_led(4);
 
     /* loop */
     while (1)
@@ -178,11 +176,13 @@ int main(void)
             case IRC_BUTTON_DOWN:
                 move(MOTOR_BACK);
                 break;
-            // case IRC_BUTTON_1:
-            //     // Toggle Buzzer
-            //     PORTB ^= _BV(BUZZER_PIN); // toggle LED1
-            //     setting_buzzer = !setting_buzzer;
-            //     break;
+#ifdef ATTINY85
+            case IRC_BUTTON_1:
+                // Toggle Buzzer
+                PORTB ^= _BV(BUZZER_PIN); // toggle LED1
+                setting_buzzer = !setting_buzzer;
+                break;
+#endif
             case IRC_BUTTON_2:
                 // Toggle LED
                 PORTB ^= _BV(LED_PIN);
@@ -196,7 +196,7 @@ int main(void)
             default:
                 // Unknown NEC code
                 tone(200, 10);
-                flash_led(3);
+                flash_led(4);
                 // start_tone(1, 1);
                 // _delay_ms(100);
                 // stop_tone();
@@ -206,28 +206,29 @@ int main(void)
             uptime_s = 0;
         }
 
-        if (motor_state == MOTOR_BACK && cycle_tick_cnt == 25000)
+        if (motor_state == MOTOR_BACK && cycle_tick_cnt == 32768)
         {
+#ifdef ATTINY85
             if (setting_led)
                 PORTB ^= _BV(LED_PIN); // toggle LED
-
-            #ifdef ATTINY85    // low flash memory. doesn't work for ATTINY13
             if (setting_buzzer)
                 PORTB ^= _BV(BUZZER_PIN); // toggle BUZZER
-            #endif
+#endif
+
+#ifdef ATTINY13 // low flash memory.
+            PORTB ^= _BV(LED_PIN); // toggle LED
+            PORTB ^= _BV(BUZZER_PIN); // toggle BUZZER
+#endif
         }
 
         // 68 bytes
-        if (cycle_tick_cnt++ > 50000) // 1 cycle is around 1s at 8Mhz
+        if (cycle_tick_cnt++ == 0) // 1 cycle is around 1.15s at 8Mhz
         {
-            cycle_tick_cnt = 0;
-            uptime_s++;
-        }
-
-        // 24 bytes
-        if (uptime_s > 1200)  // ~1200 seconds
-        {
-            go_sleep();
+            // cycle_tick_cnt = 0;
+            if (uptime_s++ > 600)
+            {
+                go_sleep();
+            }
         }
     }
 }

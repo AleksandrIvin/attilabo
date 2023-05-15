@@ -63,7 +63,7 @@ IR_NEC_process(uint16_t counter, uint8_t value)
                 IR_data = IR_index = 0;
                 retval = IR_SUCCESS;
             }
-            else if (counter > (IR_NEC_CODE_REG_TRANSM_2_25_MS - 15) && counter < (IR_NEC_CODE_REG_TRANSM_2_25_MS + 15))
+            else if (counter > (IR_NEC_CODE_REG_TRANSM_2_25_MS - HALF_COUNTER_RANGE) && counter < (IR_NEC_CODE_REG_TRANSM_2_25_MS + HALF_COUNTER_RANGE))
             {
                 /* a 2.25ms space for NEC Code repeat; counter => 0.00225/(1.0/38222.0) * 2 = 172 (+/- 15) */
                 IR_proto_event = IR_PROTO_EVENT_FINI;

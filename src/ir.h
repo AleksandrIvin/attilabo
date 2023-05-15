@@ -32,11 +32,13 @@
 #define IR_PROTO_EVENT_FINI (2)
 #define IR_PROTO_EVENT_HOOK (3)
 
+// depends of the CPU overload
+#define HALF_COUNTER_RANGE (15)
 /* a 4.5ms space for regular transmition of NEC Code; counter => 0.0045/(1.0/38222.0) * 2 = 344 (+/- 15) */
 #define IR_NEC_CODE_REG_TRANSM_4_5_MS (345)
 // #define IR_NEC_CODE_REG_TRANSM_4_5_MS (290) // was worked
-#define IR_NEC_CODE_REG_TRANSM_4_5_MS_L (IR_NEC_CODE_REG_TRANSM_4_5_MS - 15)
-#define IR_NEC_CODE_REG_TRANSM_4_5_MS_H (IR_NEC_CODE_REG_TRANSM_4_5_MS + 15)
+#define IR_NEC_CODE_REG_TRANSM_4_5_MS_L (IR_NEC_CODE_REG_TRANSM_4_5_MS - HALF_COUNTER_RANGE)
+#define IR_NEC_CODE_REG_TRANSM_4_5_MS_H (IR_NEC_CODE_REG_TRANSM_4_5_MS + HALF_COUNTER_RANGE)
 
 /* a 2.25ms space for NEC Code repeat; counter => 0.00225/(1.0/38222.0) * 2 = 172 (+/- 15) */
 #define IR_NEC_CODE_REG_TRANSM_2_25_MS (172)
