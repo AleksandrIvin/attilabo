@@ -6,6 +6,8 @@
 #define N_256 (_BV(CS02))
 #define N_1024 (_BV(CS02) | _BV(CS00))
 
+#ifdef ATTINY85
+// this code hasn't adapted yet.
 typedef struct s_note
 {
   uint8_t OCRxn; // 0..255
@@ -28,31 +30,31 @@ typedef struct s_octave
   note_t note_B;
 } octave_t;
 
-typedef struct s_music {
+typedef struct s_music
+{
   uint8_t note_ind;
   uint8_t octave_ind;
   uint16_t delay_ms;
 } music_t;
 
 PROGMEM const music_t music[17] = {
-  { 0, 0, 300},
-  { 2, 0, 300},
-  { 4, 0, 300},
-  { 5, 0, 300},
-  { 7, 0, 300},
-  { 9, 0, 300},
-  { 3, 0, 300},
-  { 11, 0, 300},
-  { 12, 0, 300},
-  { 11, 0, 300},
-  { 9, 0, 300},
-  { 7, 0, 300},
-  { 5, 0, 300},
-  { 4, 0, 300},
-  { 2, 0, 300},
-  { 0, 0, 300},
-  { 12, 0, 300}
-};
+    {0, 0, 300},
+    {2, 0, 300},
+    {4, 0, 300},
+    {5, 0, 300},
+    {7, 0, 300},
+    {9, 0, 300},
+    {3, 0, 300},
+    {11, 0, 300},
+    {12, 0, 300},
+    {11, 0, 300},
+    {9, 0, 300},
+    {7, 0, 300},
+    {5, 0, 300},
+    {4, 0, 300},
+    {2, 0, 300},
+    {0, 0, 300},
+    {12, 0, 300}};
 
 /*
  All calculations below are prepared for ATtiny13 default clock source (1.2MHz)
@@ -187,31 +189,21 @@ PROGMEM const octave_t octaves[8] = {
         .note_B = {18, N_8}   // 3951.07 Hz
     }};
 
-void tone(int delay_ms, int delay_us)
+void play_music()
 {
-  for (int i = 0; i < delay_ms * 100; i++)
-  {
-    PORTB ^= _BV(BUZZER_PIN);
-    for (int y = 0; y < delay_us; y++)
-      _delay_us(1);
-  }
-}
-
-void play_music() {
   static uint8_t note_index = 0;
-  static uint8_t note_duration = 0;
+  static uint16_t note_duration = 0;
   music_t *val;
 
-  
-  if (note_index < sizeof(music)) {
+  if (note_index < sizeof(music))
+  {
     val = (music_t *)&music[note_index];
     start_tone(val->note_ind, val->octave_ind);
     note_duration = val->delay_ms;
   }
-  
 }
 
-void start_tone(int octave, int note)
+void start_tone(uint8_t octave, uint8_t note)
 {
   uint32_t ret;
   note_t *val;
@@ -225,4 +217,16 @@ void stop_tone(void)
 {
 
   TCCR0B &= ~((1 << CS02) | (1 << CS01) | (1 << CS00)); // stop the timer
+}
+
+#endif
+
+void tone(uint8_t delay_ms, uint8_t delay_us)
+{
+  for (uint16_t i = 0; i < delay_ms * 100; i++)
+  {
+    PORTB ^= _BV(BUZZER_PIN);
+    for (uint8_t y = 0; y < delay_us; y++)
+      _delay_us(1);
+  }
 }

@@ -1,78 +1,58 @@
 /**
  * Copyright (c) 2022, Aleksandr Ivin
- * 
+ *
  * Thanks for Łukasz Marcin Podkalicki <lpodkalicki@gmail.com>
  * ATtiny13 NEC proto analyzer, ATtiny13 tone generator
- * Example of monblocking IR signal reader (38kHz, TSOPxxx) and NEC protocol decoder. * 
+ * Example of monblocking IR signal reader (38kHz, TSOPxxx) and NEC protocol decoder. *
  * https://blog.podkalicki.com/attiny13-tone-generator/
  * https://blog.podkalicki.com/attiny13-ir-receiver-nec-proto-analyzer/
  * https://blog.podkalicki.com/100-projects-on-attiny13/
- * 
+ *
  * Settings:
  *  FUSE_L=0x7A
  *  FUSE_H=0xFF
- *  F_CPU=9600000
+ *  __F_CPU=8000000UL
  */
 
 /*
-    0x45 button 1
-    0x46 button 2
-    0x47 button 3
-    0x44 button 4
-    0x40 button 5
-    0x43 button 6
-    0x07 button 7
-    0x15 button 8
-    0x09 button 9
-    0x16 button *
-    0x19 button 0
-    0x0d button #
-
-    // Key code map for the remote control found in the kit
-const byte keyMap[][2] = {{0x45, '1'},
-                          {0x46, '2'},
-                          {0x47, '3'},
-                          {0x44, '4'},
-                          {0x40, '5'},
-                          {0x43, '6'},
-                          {0x07, '7'},
-                          {0x15, '8'},
-                          {0x09, '9'},
-                          {0x16, '*'},
-                          {0x19, '0'},
-                          {0x0D, '#'},
-                          {0x18, 'U'},
-                          {0x08, 'L'},
-                          {0x1C, 'E'},
-                          {0x5A, 'R'},
-                          {0x52, 'D'}
-                          };
-*/
-
-
-/*
 Known Issuses:
-1. start_tone doesn't work. it brokes IR timer. 
+1. start_tone doesn't work. it brokes IR timer.
 2. After IR timer inits INIT_IR, _delay() start working 2x slower
 
-
 todo:
-1. Is it possible to wakeup with IR ? I didn't hava a success
+1. Is it possible to wakeup with IR ? I didn't have a success
 2. Try to work at 1 Mhz
-3. Find a more correctly way to switchoff. 
+3. Find a more correctly way to switchoff.
 
 */
 
-//#define F_CPU 8000000UL // Attiny85
+// #define NO_ATTINY13
+// #define ATTINY85
+
+#include "conf.h"
 
 #include <util/delay.h>
 #include "ir.h"
 #include "buzzer.h"
 
-#define BUZZER_PIN PB0
-#define LED_PIN PB1
-#define MOTOR_F_PIN PB3
-#define MOTOR_B_PIN PB4
+// Infra red control button codes
+#define IRC_BUTTON_1 (0x45)
+#define IRC_BUTTON_2 (0x46)
+#define IRC_BUTTON_3 (0x47)
+#define IRC_BUTTON_4 (0x44)
+#define IRC_BUTTON_5 (0x40)
+#define IRC_BUTTON_6 (0x43)
+#define IRC_BUTTON_7 (0x07)
+#define IRC_BUTTON_8 (0x15)
+#define IRC_BUTTON_9 (0x09)
+#define IRC_BUTTON_STAR (0x16)
+#define IRC_BUTTON_0 (0x19)
+#define IRC_BUTTON_HASH (0x0D)
+#define IRC_BUTTON_UP (0x18)
+#define IRC_BUTTON_LEFT (0x08)
+#define IRC_BUTTON_OK (0x1C)
+#define IRC_BUTTON_RIGHT (0x5A)
+#define IRC_BUTTON_DOWN (0x52)
 
 #define MOTOR_STOP (0)
 #define MOTOR_FORWARD (1)
@@ -96,8 +76,8 @@ void move(uint8_t direction)
         // Move Forward
         motor_state = 1;
         PORTB |= _BV(MOTOR_F_PIN);
-        PORTB &= ~_BV(MOTOR_B_PIN);
         PORTB |= _BV(LED_PIN);
+        PORTB &= ~_BV(MOTOR_B_PIN);
         break;
     case MOTOR_BACK:
         // Move Back
@@ -111,27 +91,12 @@ void move(uint8_t direction)
     }
 }
 
-void flash_async()
+void flash_led(uint8_t cnt)
 {
-    static uint16_t flash_cnt = 0;
-    if (++flash_cnt == 24000)
+    // 64 bytes
+    for (uint8_t i = 0; i < cnt; i++)
     {
-        if (setting_led)
-            PORTB ^= _BV(LED_PIN); // toggle LED
-        if (setting_buzzer)
-            PORTB ^= _BV(BUZZER_PIN); // toggle BUZZER
-        flash_cnt = 0;    
-    }
-}
-
-void flash_led(uint8_t a)
-{
-    PORTB &= ~_BV(LED_PIN);
-    for (uint8_t i = 0; i < a; i++)
-    {
-        PORTB |= _BV(LED_PIN);
-        _delay_ms(100);
-        PORTB &= ~_BV(LED_PIN);
+        PORTB ^= _BV(LED_PIN);
         _delay_ms(100);
     }
 }
@@ -140,9 +105,11 @@ void go_sleep()
 {
     tone(200, 20);
     flash_led(5);
-    PORTB &= ~_BV(LED_PIN);
-    PORTB &= ~_BV(MOTOR_F_PIN);
-    PORTB &= ~_BV(MOTOR_B_PIN);
+    // Turn off all the pins
+    // PORTB &= ~_BV(LED_PIN);
+    // PORTB &= ~_BV(MOTOR_F_PIN);
+    // PORTB &= ~_BV(MOTOR_B_PIN);
+    PORTB &= ~(_BV(BUZZER_PIN) | _BV(LED_PIN) | _BV(MOTOR_F_PIN) | _BV(MOTOR_B_PIN));
 
     MCUCR |= (1 << SM1); // enabling sleep mode and powerdown sleep mode
     MCUCR |= (1 << SE);  // Enabling sleep enable bit
@@ -154,36 +121,19 @@ void go_sleep()
 int main(void)
 {
     uint8_t addr, cmd;
-    volatile uint32_t cycle_tick_cnt = 0;
-    volatile uint32_t uptime_s = 0;
+    volatile uint16_t cycle_tick_cnt = 0;
+    volatile uint16_t uptime_s = 0;
 
     /* setup */
     DDRB |= _BV(BUZZER_PIN) | _BV(LED_PIN) | _BV(MOTOR_F_PIN) | _BV(MOTOR_B_PIN);
-    PORTB &= ~_BV(LED_PIN);
-    PORTB &= ~_BV(MOTOR_F_PIN);
-    PORTB &= ~_BV(MOTOR_B_PIN);
-
-    // tone(200, 10);  ///
-    // PORTB ^= _BV(LED_PIN);
-    // PORTB ^= _BV(MOTOR_B_PIN);
-    // _delay_ms(5000);
-    // PORTB ^= _BV(LED_PIN);
-    // PORTB ^= _BV(MOTOR_B_PIN);
-    // _delay_ms(2000);
-
-    IR_init();
-    // after init time is x2 slow
-    // PORTB ^= _BV(LED_PIN);
-    // PORTB ^= _BV(MOTOR_F_PIN);
-    // _delay_ms(5000);
-    // PORTB ^= _BV(LED_PIN);
-    // PORTB ^= _BV(MOTOR_F_PIN);
-    // _delay_ms(2000);
+    PORTB &= ~(_BV(BUZZER_PIN) | _BV(LED_PIN) | _BV(MOTOR_F_PIN) | _BV(MOTOR_B_PIN));
     // PORTB &= ~_BV(LED_PIN);
     // PORTB &= ~_BV(MOTOR_F_PIN);
     // PORTB &= ~_BV(MOTOR_B_PIN);
+    IR_init();
+    // after IR_init time is x2 slow // Attiny13 +, Attiny85 ?
     tone(200, 10);
-    flash_led(2);
+    flash_led(4);
 
     /* loop */
     while (1)
@@ -197,31 +147,28 @@ int main(void)
 
             switch (cmd)
             {
-            case 0x1C:
-                // button OK
+            case IRC_BUTTON_OK:
                 move(MOTOR_STOP);
                 break;
-            case 0x18:
-                // button UP
+            case IRC_BUTTON_UP:
                 move(MOTOR_FORWARD);
                 break;
-            case 0x52:
-                // button DOWN
+            case IRC_BUTTON_DOWN:
                 move(MOTOR_BACK);
                 break;
-            case 0x45:
-                // button 1
+#ifdef ATTINY85
+            case IRC_BUTTON_1:
                 // Toggle Buzzer
                 PORTB ^= _BV(BUZZER_PIN); // toggle LED1
                 setting_buzzer = !setting_buzzer;
                 break;
-            case 0x46:
-                // button 2
+#endif
+            case IRC_BUTTON_2:
                 // Toggle LED
-                PORTB ^= _BV(LED_PIN); // toggle LED2
+                PORTB ^= _BV(LED_PIN);
                 setting_led = !setting_led;
                 break;
-            case 0x16:
+            case IRC_BUTTON_STAR:
                 // button *
                 // Toggle LED
                 go_sleep();
@@ -229,30 +176,38 @@ int main(void)
             default:
                 // Unknown NEC code
                 tone(200, 10);
-                flash_led(3);
+                flash_led(4);
                 // start_tone(1, 1);
                 // _delay_ms(100);
                 // stop_tone();
                 break;
             };
-            // reset on last event
+            // reset uptime on last event
             uptime_s = 0;
         }
 
-        if (motor_state == MOTOR_BACK)
+        if (motor_state == MOTOR_BACK && cycle_tick_cnt == 32768)
         {
-            flash_async();
+#ifdef ATTINY85
+            if (setting_led)
+                PORTB ^= _BV(LED_PIN); // toggle LED
+            if (setting_buzzer)
+                PORTB ^= _BV(BUZZER_PIN); // toggle BUZZER
+#endif
+
+#ifdef ATTINY13                                      // low flash memory.
+            PORTB ^= _BV(LED_PIN) | _BV(BUZZER_PIN); // toggle LED and BUZZER
+#endif
         }
 
-        if (cycle_tick_cnt++ > 100000) // 1 cycle is around 2s at 8Mhz
+        // 1 cycle is around 1.15s at 8Mhz Attiny85
+        // and 30s at 9.6Mhz Attiny13
+        if (cycle_tick_cnt++ == 0)
         {
-            cycle_tick_cnt = 0;
-            uptime_s++;
-        }
-
-        if (uptime_s > 300)  // ~600 seconds
-        {
-            go_sleep();
+            if (uptime_s++ > UPTIME_TO_SLEEP)
+            {
+                go_sleep();
+            }
         }
     }
 }
