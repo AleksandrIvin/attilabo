@@ -76,8 +76,8 @@ void move(uint8_t direction)
         // Move Forward
         motor_state = 1;
         PORTB |= _BV(MOTOR_F_PIN);
-        PORTB &= ~_BV(MOTOR_B_PIN);
         PORTB |= _BV(LED_PIN);
+        PORTB &= ~_BV(MOTOR_B_PIN);
         break;
     case MOTOR_BACK:
         // Move Back
@@ -94,13 +94,10 @@ void move(uint8_t direction)
 void flash_led(uint8_t cnt)
 {
     // 64 bytes
-    // PORTB &= ~_BV(LED_PIN);
     for (uint8_t i = 0; i < cnt; i++)
     {
         PORTB ^= _BV(LED_PIN);
         _delay_ms(100);
-        // PORTB &= ~_BV(LED_PIN);
-        // _delay_ms(100);
     }
 }
 
@@ -109,10 +106,10 @@ void go_sleep()
     tone(200, 20);
     flash_led(5);
     // Turn off all the pins
-    PORTB &= ~_BV(LED_PIN);
-    PORTB &= ~_BV(MOTOR_F_PIN);
-    PORTB &= ~_BV(MOTOR_B_PIN);
-    // PORTB &= ~(_BV(BUZZER_PIN) | _BV(LED_PIN) | _BV(MOTOR_F_PIN) | _BV(MOTOR_B_PIN));
+    // PORTB &= ~_BV(LED_PIN);
+    // PORTB &= ~_BV(MOTOR_F_PIN);
+    // PORTB &= ~_BV(MOTOR_B_PIN);
+    PORTB &= ~(_BV(BUZZER_PIN) | _BV(LED_PIN) | _BV(MOTOR_F_PIN) | _BV(MOTOR_B_PIN));
 
     MCUCR |= (1 << SM1); // enabling sleep mode and powerdown sleep mode
     MCUCR |= (1 << SE);  // Enabling sleep enable bit
@@ -129,29 +126,12 @@ int main(void)
 
     /* setup */
     DDRB |= _BV(BUZZER_PIN) | _BV(LED_PIN) | _BV(MOTOR_F_PIN) | _BV(MOTOR_B_PIN);
-    PORTB &= ~_BV(LED_PIN);
-    PORTB &= ~_BV(MOTOR_F_PIN);
-    PORTB &= ~_BV(MOTOR_B_PIN);
-
-    // tone(200, 10);  ///
-    // PORTB ^= _BV(LED_PIN);
-    // PORTB ^= _BV(MOTOR_B_PIN);
-    // _delay_ms(5000);
-    // PORTB ^= _BV(LED_PIN);
-    // PORTB ^= _BV(MOTOR_B_PIN);
-    // _delay_ms(2000);
-
-    IR_init();
-    // after init time is x2 slow
-    // PORTB ^= _BV(LED_PIN);
-    // PORTB ^= _BV(MOTOR_F_PIN);
-    // _delay_ms(5000);
-    // PORTB ^= _BV(LED_PIN);
-    // PORTB ^= _BV(MOTOR_F_PIN);
-    // _delay_ms(2000);
+    PORTB &= ~(_BV(BUZZER_PIN) | _BV(LED_PIN) | _BV(MOTOR_F_PIN) | _BV(MOTOR_B_PIN));
     // PORTB &= ~_BV(LED_PIN);
     // PORTB &= ~_BV(MOTOR_F_PIN);
     // PORTB &= ~_BV(MOTOR_B_PIN);
+    IR_init();
+    // after IR_init time is x2 slow // Attiny13 +, Attiny85 ?
     tone(200, 10);
     flash_led(4);
 
@@ -215,17 +195,16 @@ int main(void)
                 PORTB ^= _BV(BUZZER_PIN); // toggle BUZZER
 #endif
 
-#ifdef ATTINY13 // low flash memory.
-            PORTB ^= _BV(LED_PIN); // toggle LED
-            PORTB ^= _BV(BUZZER_PIN); // toggle BUZZER
+#ifdef ATTINY13                                      // low flash memory.
+            PORTB ^= _BV(LED_PIN) | _BV(BUZZER_PIN); // toggle LED and BUZZER
 #endif
         }
 
-        // 68 bytes
-        if (cycle_tick_cnt++ == 0) // 1 cycle is around 1.15s at 8Mhz
+        // 1 cycle is around 1.15s at 8Mhz Attiny85
+        // and 30s at 9.6Mhz Attiny13
+        if (cycle_tick_cnt++ == 0)
         {
-            // cycle_tick_cnt = 0;
-            if (uptime_s++ > 600)
+            if (uptime_s++ > UPTIME_TO_SLEEP)
             {
                 go_sleep();
             }

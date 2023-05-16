@@ -9,16 +9,19 @@
 
         #define LED_PIN PB1
         #define IR_IN_PIN PB2
+        #define UPTIME_TO_SLEEP ((int)(1.15 * 60 * 10))  // 10 min
     #endif
 
     #ifdef ATTINY13
         // Attiny13
         #ifndef F_CPU
-            #define F_CPU 1200000UL
+            #define F_CPU 9600000UL
         #endif
 
         #define LED_PIN PB2
         #define IR_IN_PIN PB1
+        #define UPTIME_TO_SLEEP ((int)(2 * 60 * 10))  // 10 min
+
     #endif
 
     #define BUZZER_PIN PB0

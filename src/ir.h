@@ -12,9 +12,11 @@
 // IR pin Attiny85 = PB2 (7 pin)
 // //#define IR_IN_PIN PB2
 // 9.6Mhz Attiny13 9.600.000 / 38222 / 2 = 125  (I don't know why 122)
-// #define	IR_OCR0A		(122)  // worked
+// #define	IR_OCR0A		(122)  // worked for ATTINY13
 // 8Mhz  Attiny85 8.000.000 / 38222 / 2 = 104
-#define IR_OCR0A (104)
+// #define IR_OCR0A (104) // worked for ATIINY85
+#define IR_OCR0A ((F_CPU) / 38222 / 2)
+
 
 #define LOW (0)
 #define HIGH (1)
